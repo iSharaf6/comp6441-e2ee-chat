@@ -1,0 +1,91 @@
+
+==========================================================================
+EXPERIMENT A - passive eavesdropper on the wire
+==========================================================================
+Alice sends plaintext : my bank password is hunter2
+Eve observes on wire  : 0000000000000000abd4dfbb33805ef9256664140bfa361fb8aacd9f78967a3d4e0978783d57d70067ff9f886d6a7d242511d9
+Eve tries ASCII decode: '\x00\x00\x00\x00\x00\x00\x00\x00����3�^�%fd\x14\x0b�6\x1f����x�z=N\txx=W�\x00g���mj}$%\x11�'
+Bob decrypts to       : my bank password is hunter2
+
+RESULT: Eve gets ciphertext only. Confidentiality holds against a
+        passive attacker. This is the easy case.
+
+==========================================================================
+EXPERIMENT B - active attacker flips one bit in the ciphertext
+==========================================================================
+original byte[20] = 0x35
+flipped  byte[20] = 0x34  (one bit changed)
+
+Bob raises InvalidTag -> message rejected, never shown to user.
+RESULT: integrity holds. GCM's tag covers the ciphertext, so any
+        modification is detected. Note this is exactly what plain
+        AES-CTR or AES-CBC would NOT give me - encryption alone is
+        not integrity.
+
+==========================================================================
+EXPERIMENT B2 - attacker renumbers the record (attacks the counter)
+==========================================================================
+counter in header = 0
+attacker rewrites counter to 9
+
+RESULT: rejected. The counter is passed as AAD, so it is
+        authenticated even though it travels in clear. If I had
+        left it unauthenticated an attacker could reorder or
+        suppress messages silently.
+
+==========================================================================
+EXPERIMENT C - attacker captures a record and re-sends it
+==========================================================================
+Bob first delivery : 'unlock the front door'  (accepted)
+Bob second delivery: rejected - replay/reorder detected (counter 0)
+
+RESULT: replay blocked by the monotonic counter. Worth noting the
+        AEAD tag alone would NOT have caught this - a replayed
+        record is perfectly authentic. Replay defence is protocol
+        level state, not a property of the cipher.
+
+==========================================================================
+EXPERIMENT D - active MITM on an UNAUTHENTICATED handshake
+==========================================================================
+Mallory sits on the relay and answers each side herself.
+
+Alice sends          : the meeting is at 4pm, bring the documents
+MALLORY READS        : the meeting is at 4pm, bring the documents   <-- plaintext, fully readable
+Mallory re-encrypts  : the meeting is CANCELLED, go home
+Bob receives         : the meeting is CANCELLED, go home
+Bob's AEAD tag check : VALID (he has no way to know)
+
+RESULT: TOTAL COMPROMISE. Plain DH authenticates nothing. Alice
+        proved she can do DH, not that she is Alice. Encryption was
+        never broken - the attacker was simply handed the keys.
+
+--- now the defence: compare safety numbers out of band ---
+what Alice's screen shows : 351382 152311 131337 603305 584954 162585
+what Bob's screen shows   : 127331 820217 140491 236371 135347 059627
+expected if no attacker   : 124704 983283 127848 507378 889389 672885
+
+Alice == Bob ?  False  -> MISMATCH REVEALS MALLORY
+
+But note the limit: this only works if the humans actually check,
+over a channel Mallory does not control. The maths cannot force that.
+
+==========================================================================
+EXPERIMENT E - what the relay still learns (metadata)
+==========================================================================
+plaintext                                                      wire len
+--------------------------------------------------------------------------
+hi                                                                   26
+can you talk                                                         36
+no                                                                   26
+I am resigning on Monday and taking the client list with me          83
+
+RESULT: ATTACK SUCCEEDS. The encrypted payload preserves length and
+        the record adds a fixed 24 bytes, so the relay recovers the
+        plaintext length exactly by subtracting 24. It also sees
+        who talks to whom, when, and how often. A short reply after a
+        long message is visibly a 'no'. My design does not defend this
+        at all, and padding + cover traffic would be the fix.
+
+==========================================================================
+SUMMARY: A, B, B2 and C defended. D and E are real, unfixed weaknesses.
+==========================================================================

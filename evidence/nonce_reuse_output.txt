@@ -1,0 +1,25 @@
+==========================================================================
+NONCE REUSE - what happens if the counter repeats
+==========================================================================
+key      : 910144948db5c8b96bc8942cb6d55e44... (attacker does NOT have this)
+nonce    : 000000000000000000000000  (reused for both messages)
+
+C1 xor C2 : 0000000000000000000800000000000000000000000000000c0d050f0a4249
+P1 xor P2 : 0000000000000000000800000000000000000000000000000c0d050f0a4249
+identical : True
+
+Attacker knows or guesses P1 (a common template message):
+  known    P1 = transfer 100 dollars to alice00
+  RECOVERED P2 = transfer 900 dollars to mallory
+  correct?     = True
+
+RESULT: the key was never broken and never needed to be. Reusing one
+        nonce leaks the XOR of both plaintexts, and one known message
+        peels off the other in full. GCM additionally loses its
+        authentication guarantee under nonce reuse (the tag key can be
+        recovered), so forgery becomes possible too.
+
+This is why crypto_core.SecureSession derives SEPARATE keys per
+direction and uses a strict per key counter: if both parties encrypted
+with one shared key starting at counter 0, their first messages would
+collide on (key, nonce) immediately and reproduce exactly this failure.

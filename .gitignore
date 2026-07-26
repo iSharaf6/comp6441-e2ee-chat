@@ -1,0 +1,23 @@
+__pycache__/
+*.pyc
+
+# LaTeX build artefacts
+*.aux
+*.out
+*.toc
+*.nav
+*.snm
+*.synctex.gz
+report_src/*.log
+
+# rendered page previews
+*.jpg
+*.png
+
+# report figures are needed to rebuild the PDF
+!report_src/figs/*.png
+
+# evidence logs are deliberately committed
+!evidence/*.log
+*.vrb
+.DS_Store

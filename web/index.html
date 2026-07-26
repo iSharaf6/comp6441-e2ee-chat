@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="COMP6441 end to end encrypted chat: live view of the same message at both endpoints and at the untrusted relay.">
+<title>End to end encrypted chat: live view</title>
+<style>
+/* Deliberately plain. The point of this page is the evidence, not the styling.
+   One rule carries meaning: text a human reads is sans, cryptographic
+   material is monospace. Endpoints are light, the untrusted relay is dark. */
+*{box-sizing:border-box}
+body{
+  margin:0 auto;padding:24px 18px 60px;max-width:1180px;
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
+  font-size:15px;line-height:1.55;color:#111;background:#fff;
+}
+h1{font-size:21px;margin:0 0 4px}
+h2{font-size:16px;margin:34px 0 8px;padding-bottom:5px;border-bottom:1px solid #ccc}
+p{margin:0 0 10px}
+.sub{color:#555;margin:0 0 4px}
+.mono,code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px}
+a{color:#0645ad}
+button{font:inherit;padding:6px 11px;border:1px solid #767676;background:#f2f2f2;color:#111;cursor:pointer}
+button:hover:not([disabled]){background:#e6e6e6}
+button[disabled]{color:#888;cursor:default}
+button:focus-visible,input:focus-visible{outline:2px solid #0645ad;outline-offset:1px}
+input[type=text]{font:inherit;padding:6px 8px;border:1px solid #999;min-width:0;flex:1}
+
+ol.guide{margin:0 0 4px;padding-left:22px}
+ol.guide li{margin-bottom:5px}
+
+.status{border:1px solid #999;border-left-width:5px;padding:9px 12px;margin:0 0 14px;font-size:14px}
+.status.safe{border-left-color:#1a7f37;background:#f2f9f4}
+.status.danger{border-left-color:#b3261e;background:#fdf3f2}
+.status.wait{border-left-color:#888;background:#f6f6f6}
+
+.cols{display:flex;gap:0;border:1px solid #999}
+.col{display:flex;flex-direction:column;flex:1 1 0;min-width:0}
+.col+.col{border-left:1px solid #999}
+.col.relay{background:#1c1c1c;color:#eee;flex:1.2 1 0}
+.head{padding:7px 10px;border-bottom:1px solid #999;font-weight:700;font-size:13px;display:flex;gap:8px;align-items:baseline}
+.relay .head{border-bottom-color:#444}
+.head .tag{margin-left:auto;font-weight:400;font-size:11px;color:#555}
+.relay .head .tag{color:#aaa}
+.feed{flex:none;height:250px;overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:7px}
+.compose{display:flex;gap:6px;padding:8px;border-top:1px solid #999}
+.relay .compose{border-top-color:#444;color:#aaa;font-size:12px;display:block}
+
+.msg{border:1px solid #ccc;padding:6px 9px;font-size:14px;word-wrap:break-word}
+.msg.sent{background:#eef2f7;align-self:flex-end;max-width:92%}
+.msg.recv{background:#f7f7f7;align-self:flex-start;max-width:92%}
+.lbl{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:#666;margin-bottom:2px}
+.rec{border:1px solid #3a3a3a;background:#111;padding:7px 9px}
+.rec .meta{font-size:11px;color:#9ad;margin-bottom:3px}
+.hex{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11.5px;color:#7fd6a8;word-break:break-all;line-height:1.45}
+.hex .ctr{color:#777}
+.sys{font-size:12px;color:#bbb;border-left:2px solid #555;padding-left:8px}
+.mal{border:1px solid #a5443a;background:#2a1512;color:#ffb0a4;padding:7px 9px;font-size:13px}
+.mal .lbl{color:#d98b80}
+.res{font-size:13px;padding:6px 9px;border:1px solid}
+.res.good{background:#f2f9f4;border-color:#1a7f37;color:#14532d}
+.res.bad{background:#fdf3f2;border-color:#b3261e;color:#7f1d1d}
+.res.warn{background:#fbf6ea;border-color:#8a6116;color:#5c4210}
+
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{border:1px solid #bbb;padding:6px 9px;text-align:left;vertical-align:top}
+th{background:#f2f2f2;font-size:12px;text-transform:uppercase;letter-spacing:.05em}
+td.st{white-space:nowrap;font-size:12px;font-weight:700}
+.st.pass{color:#1a7f37}.st.exposed{color:#b3261e}.st.fail{color:#b3261e}.st.pending{color:#777;font-weight:400}
+td.act{white-space:nowrap}
+.ev{margin-top:4px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11.5px;color:#333;background:#f6f6f6;border-left:3px solid #bbb;padding:5px 7px;word-break:break-word}
+.q{color:#555;font-size:13px}
+.runall{margin:0 0 12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.note{font-size:13px;color:#555}
+ul.plain{margin:0 0 10px;padding-left:20px}
+ul.plain li{margin-bottom:4px}
+
+@media (max-width:860px){
+  .cols{flex-direction:column}
+  .col+.col{border-left:0;border-top:1px solid #999}
+  .feed{height:190px}
+  table,tbody,th,td,tr{display:block}
+  thead{display:none}
+  td{border:0;border-bottom:1px solid #eee}
+  tr{border:1px solid #bbb;margin-bottom:10px;padding:4px}
+}
+</style>
+</head>
+<body>
+
+<h1>End to end encrypted chat: live view</h1>
+<p class="sub">COMP6441 Security Engineering &middot; Islam Sharaf &middot; z5592832</p>
+<p class="sub">Everything on this page is produced by <code>src/crypto_core.py</code>, the same Python
+module the terminal chat uses. No cryptography is reimplemented in the browser.</p>
+
+<h2>What this page is showing</h2>
+<p>Alice and Bob are two people having a private conversation. The <strong>relay</strong> in the
+middle is the server that carries their messages, the way a messaging company's servers would.
+The question this project asks is: <em>how much can that server in the middle actually see?</em></p>
+<ol class="guide">
+  <li>Press <strong>Send</strong> under Alice. The message appears as ordinary readable text
+      under both Alice and Bob.</li>
+  <li>Look at the dark middle column. The same message is there, but only as a counter and a
+      block of hexadecimal. That is everything the server gets.</li>
+  <li>The bar below compares a <strong>safety number</strong> that Alice and Bob each compute
+      independently. Matching numbers mean nobody is impersonating either side.</li>
+  <li>Then run the checks in the table further down. Each one runs real Python and reports what
+      actually happened, including the two attacks that succeed.</li>
+</ol>
+
+<h2>1. One message, three views</h2>
+
+<div class="status wait" id="statusbar" role="status">
+  <span id="statustext">Starting a fresh session.</span>
+</div>
+
+<div class="cols">
+  <div class="col">
+    <div class="head">Alice <span class="tag">holds keys</span></div>
+    <div class="feed" id="feed-alice" aria-live="polite"></div>
+    <form class="compose" onsubmit="sendMessage(event,'alice')">
+      <input type="text" id="in-alice" value="Meet me at the library at 4 pm" aria-label="Message as Alice">
+      <button type="submit">Send</button>
+    </form>
+  </div>
+
+  <div class="col relay">
+    <div class="head">Relay server <span class="tag">no keys &middot; untrusted</span></div>
+    <div class="feed" id="feed-wire" aria-live="polite"></div>
+    <div class="compose">This column is everything the server can possibly see.</div>
+  </div>
+
+  <div class="col">
+    <div class="head">Bob <span class="tag">holds keys</span></div>
+    <div class="feed" id="feed-bob" aria-live="polite"></div>
+    <form class="compose" onsubmit="sendMessage(event,'bob')">
+      <input type="text" id="in-bob" value="I will be there" aria-label="Message as Bob">
+      <button type="submit">Send</button>
+    </form>
+  </div>
+</div>
+
+<h2>2. Security checks</h2>
+<p>Each row runs the real experiment and prints the evidence it produced. Four defences hold.
+Two are known weaknesses that this project documents rather than hides, so a red result in
+those two rows is the expected and correct outcome.</p>
+
+<div class="runall">
+  <button id="runall" type="button" onclick="runAll()">Run all nine checks</button>
+  <span class="note" id="runall-note">Takes a few seconds. Results fill in below.</span>
+</div>
+
+<table>
+  <thead>
+    <tr><th style="width:46px">#</th><th>Check and question</th><th style="width:96px">Result</th><th style="width:88px">Run</th></tr>
+  </thead>
+  <tbody id="rows"></tbody>
+</table>
+
+<h2>3. What holds and what does not</h2>
+<ul class="plain">
+  <li><strong>Holds:</strong> the relay cannot read message content, cannot alter a message
+      without the tag check failing, cannot renumber records, and cannot replay a captured one.</li>
+  <li><strong>Does not hold:</strong> an active attacker who sits in the handshake gets both keys
+      and reads everything, because plain Diffie-Hellman proves the other side can do the maths
+      but not <em>who they are</em>. Comparing safety numbers is the only warning, and only if a
+      human actually checks.</li>
+  <li><strong>Does not hold:</strong> message length, timing and direction are visible to the
+      relay. Check E recovers exact plaintext lengths from the wire sizes alone.</li>
+</ul>
+<p class="note">The equivalent terminal commands are <code>python3 demos/attacks.py</code>,
+<code>python3 demos/nonce_reuse.py</code>, <code>python3 tests/verify_params.py</code> and
+<code>python3 tests/test_crypto.py</code>. This page calls the same code paths.</p>
+
+<script>
+var seen = 0;
+var latest = {results:{}, events:[]};
+var busy = false;
+
+var CHECKS = [
+  {key:'passive',  no:'A',  title:'Passive observer',      q:'Can the relay find Alice’s plaintext inside the record it forwards?', src:'demos/attacks.py'},
+  {key:'tamper',   no:'B',  title:'Ciphertext edit',       q:'What happens if one ciphertext bit is changed in transit?', src:'demos/attacks.py'},
+  {key:'counter',  no:'B2', title:'Counter change',        q:'Can an attacker renumber a record, given the counter is visible?', src:'demos/attacks.py'},
+  {key:'replay',   no:'C',  title:'Captured replay',       q:'Can a genuine, valid record be delivered a second time?', src:'demos/attacks.py'},
+  {key:'mitm',     no:'D',  title:'Machine in the middle', q:'Does plain Diffie-Hellman prove who is on the other end?', src:'demos/attacks.py'},
+  {key:'metadata', no:'E',  title:'Metadata leak',         q:'What can the relay work out without decrypting anything?', src:'demos/attacks.py'},
+  {key:'nonce',    no:'F',  title:'Nonce reuse',           q:'What breaks if one GCM nonce repeats under the same key?', src:'demos/nonce_reuse.py'},
+  {key:'params',   no:'V1', title:'RFC 3526 parameters',   q:'Does the prime match the RFC formula and form a safe prime group?', src:'tests/verify_params.py'},
+  {key:'tests',    no:'V2', title:'Automated test suite',  q:'Does the full regression suite still pass?', src:'tests/test_crypto.py'}
+];
+
+function api(path, body){
+  return new Promise(function(resolve, reject){
+    var x = new XMLHttpRequest();
+    x.open(body ? 'POST' : 'GET', path, true);
+    if(body) x.setRequestHeader('Content-Type','application/json');
+    x.onreadystatechange = function(){
+      if(x.readyState !== 4) return;
+      var data;
+      try { data = JSON.parse(x.responseText); }
+      catch(e){ reject(new Error('The server returned data the page could not read.')); return; }
+      if(x.status < 200 || x.status >= 300){ reject(new Error(data.error || 'The request failed.')); return; }
+      resolve(data);
+    };
+    x.onerror = function(){ reject(new Error('The local server is not responding. Is web/demo_server.py still running?')); };
+    x.send(body ? JSON.stringify(body) : null);
+  });
+}
+
+function esc(v){ return String(v==null?'':v).replace(/[&<>"']/g, function(c){
+  return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+function el(tag, cls, html){ var n=document.createElement(tag); n.className=cls; n.innerHTML=html; return n; }
+
+function render(state){
+  latest = state;
+  var A=document.getElementById('feed-alice'), B=document.getElementById('feed-bob'), W=document.getElementById('feed-wire');
+  A.innerHTML=''; B.innerHTML=''; W.innerHTML='';
+
+  for(var i=0;i<state.events.length;i++){
+    var ev = state.events[i];
+    if(ev.kind === 'plain'){
+      var mine = !ev.received;
+      var node = el('div','msg '+(mine?'sent':'recv'),
+        '<span class="lbl">'+(mine?'sent':'received')+'</span>'+esc(ev.text));
+      (ev.who === 'alice' ? A : B).appendChild(node);
+    } else if(ev.kind === 'wire'){
+      var hex = esc(ev.text);
+      W.appendChild(el('div','rec',
+        '<div class="meta">'+esc(ev.direction)+' &middot; '+ev.length+' bytes &middot; counter '+ev.counter+'</div>'+
+        '<div class="hex"><span class="ctr">'+hex.slice(0,16)+'</span>'+hex.slice(16)+'</div>'));
+    } else if(ev.kind === 'intercept'){
+      W.appendChild(el('div','mal','<span class="lbl">Mallory reads</span>'+esc(ev.text)));
+    } else if(ev.kind === 'system'){
+      W.appendChild(el('div','sys', esc(ev.text)));
+    } else if(ev.kind === 'attack'){
+      B.appendChild(el('div','res warn', esc(ev.text)));
+    } else if(ev.kind === 'good' || ev.kind === 'bad' || ev.kind === 'reject'){
+      B.appendChild(el('div','res '+(ev.kind==='good'?'good':'bad'), esc(ev.text)));
+    }
+  }
+  if(state.events.length) seen = state.events[state.events.length-1].id;
+  [A,B,W].forEach(function(f){ f.scrollTop = f.scrollHeight; });
+
+  var bar=document.getElementById('statusbar'), txt=document.getElementById('statustext');
+  if(state.fp_match){
+    bar.className = 'status safe';
+    txt.innerHTML = '<strong>Safety numbers match.</strong> Alice and Bob both computed '+
+      '<span class="mono">'+esc(state.fp_alice)+'</span>. Nobody is sitting in the middle.';
+  } else {
+    bar.className = 'status danger';
+    txt.innerHTML = '<strong>Safety numbers do not match, so someone is in the middle.</strong> '+
+      'Alice computed <span class="mono">'+esc(state.fp_alice)+'</span> but Bob computed '+
+      '<span class="mono">'+esc(state.fp_bob)+'</span>. Only comparing them outside this channel '+
+      'reveals the attack. The maths alone cannot.';
+  }
+  renderRows();
+}
+
+function renderRows(){
+  var body=document.getElementById('rows');
+  body.innerHTML='';
+  CHECKS.forEach(function(c){
+    var r = latest.results && latest.results[c.key];
+    var status = r ? r.status : 'pending';
+    var label = r ? r.verdict : 'not run';
+
+    var tr=document.createElement('tr');
+
+    var td1=document.createElement('td'); td1.className='mono'; td1.textContent=c.no; tr.appendChild(td1);
+
+    var td2=document.createElement('td');
+    td2.innerHTML='<strong>'+esc(c.title)+'</strong><br><span class="q">'+esc(c.q)+'</span>'+
+      '<br><span class="q mono">'+esc(c.src)+'</span>';
+    if(r){ td2.appendChild(el('div','ev', esc(r.detail)+'<br>'+esc(r.evidence))); }
+    tr.appendChild(td2);
+
+    var td3=document.createElement('td'); td3.className='st '+status; td3.textContent=label; tr.appendChild(td3);
+
+    var td4=document.createElement('td'); td4.className='act';
+    var b=document.createElement('button'); b.type='button'; b.textContent=r?'Re-run':'Run';
+    b.onclick=function(){ runOne(c.key); };
+    b.disabled=busy;
+    td4.appendChild(b); tr.appendChild(td4);
+
+    body.appendChild(tr);
+  });
+}
+
+function fail(err){
+  var bar=document.getElementById('statusbar');
+  bar.className='status danger';
+  document.getElementById('statustext').textContent = err.message;
+}
+
+function sendMessage(e, who){
+  e.preventDefault();
+  var box=document.getElementById('in-'+who), text=box.value.trim();
+  if(!text) return;
+  api('/api/send',{who:who,text:text}).then(render).catch(fail);
+}
+
+function runOne(key){
+  if(busy) return Promise.resolve();
+  busy = true; renderRows();
+  return api('/api/experiment',{kind:key})
+    .then(function(s){ busy=false; render(s); })
+    .catch(function(e){ busy=false; renderRows(); fail(e); });
+}
+
+function runAll(){
+  if(busy) return;
+  var btn=document.getElementById('runall'), note=document.getElementById('runall-note');
+  btn.disabled=true;
+  // mitm runs last on purpose: it leaves an attacker in the session, which is
+  // the state the final status bar should be reporting.
+  var order=['passive','tamper','counter','replay','metadata','nonce','params','tests','mitm'];
+  var i=0;
+  (function next(){
+    if(i>=order.length){
+      btn.disabled=false; btn.textContent='Run all nine checks';
+      note.textContent='All nine finished. The last check (D) deliberately leaves an attacker in place.';
+      renderRows();
+      return;
+    }
+    var key=order[i++];
+    btn.textContent='Running '+key+' ('+i+' of '+order.length+')';
+    note.textContent='Running each check against the live Python session.';
+    runOne(key).then(next);
+  })();
+}
+
+api('/api/state').then(render).catch(fail);
+</script>
+</body>
+</html>

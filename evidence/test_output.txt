@@ -1,0 +1,23 @@
+test_direction_keys_are_separate (__main__.TestKeyExchange) ... ok
+test_fingerprint_changes_with_different_key (__main__.TestKeyExchange) ... ok
+test_fingerprint_is_symmetric (__main__.TestKeyExchange) ... ok
+test_independent_sessions_differ (__main__.TestKeyExchange) ... ok
+test_public_key_is_256_bytes (__main__.TestKeyExchange) ... ok
+test_rejects_small_subgroup_values (__main__.TestKeyExchange) ... ok
+test_rejects_wrong_length (__main__.TestKeyExchange) ... ok
+test_shared_secret_agrees (__main__.TestKeyExchange) ... ok
+test_ciphertext_differs_from_plaintext (__main__.TestRecordLayer) ... ok
+test_counter_tamper_detected (__main__.TestRecordLayer) ... ok
+test_cross_session_key_isolation (__main__.TestRecordLayer) ... ok
+test_nonces_unique_over_many_messages (__main__.TestRecordLayer) ... ok
+test_reorder_blocked (__main__.TestRecordLayer) ... ok
+test_replay_blocked (__main__.TestRecordLayer) ... ok
+test_round_trip (__main__.TestRecordLayer) ... ok
+test_same_plaintext_gives_different_ciphertext (__main__.TestRecordLayer) ... ok
+test_tamper_detected (__main__.TestRecordLayer) ... ok
+test_truncation_detected (__main__.TestRecordLayer) ... ok
+
+----------------------------------------------------------------------
+Ran 18 tests in 0.018s
+
+OK

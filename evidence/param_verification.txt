@@ -1,0 +1,10 @@
+Verifying DH parameters against RFC 3526 Section 3 (Group 14)
+--------------------------------------------------------------
+p bit length            : 2048
+matches RFC 3526 formula: True
+generator g             : 2
+p is prime              : True
+(p-1)/2 is prime        : True  <- safe prime
+--------------------------------------------------------------
+A safe prime means the only small subgroup is order 2, so the
+small subgroup check in deserialise_public() is sufficient.

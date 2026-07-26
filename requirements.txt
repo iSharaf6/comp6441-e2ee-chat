@@ -1,0 +1,4 @@
+cryptography>=42.0
+# optional, only for tests/verify_params.py
+mpmath>=1.3
+sympy>=1.12
